@@ -1,13 +1,14 @@
 import requests
 from bs4 import BeautifulSoup
 import json
+from sys import argv
 
-def fetchData(page=0):
+def fetchData(appname,page=0):
     print("loading page "+str(page))
     payload = {
         "reviewType": 1,
         "pageNum": page,
-        "id": "tw.com.twmp.twhcewallet",
+        "id": appname,
         "reviewSortOrder": 2,
         "xhr": 1
     }
@@ -16,23 +17,24 @@ def fetchData(page=0):
 
     return r.text
 
-def parseData(page=0):
-    fetchContent = fetchData(page)
+def parseData(appname,page=0, exist_array=[]):
+    fetchContent = fetchData(appname,page)
     jsonContent = fetchContent.split("\n")[2] + "]"
     jsonObject = json.loads(jsonContent)[0]
 
 
     if len(jsonObject) == 2:
         print("out of comment range")
-        return False
+        # return False
+        return exist_array
     # print(jsonContent)
     # print(htmlContent)
 
     htmlContent = jsonObject[2]
     if htmlContent == "":
         print("no comments")
-        return False
-
+        return exist_array
+        # return False
 
     commentGroup = []
     spliter = '<div class="single-review"'
@@ -44,23 +46,53 @@ def parseData(page=0):
     soup = BeautifulSoup(htmlContent, "html5lib")
 
     for comment in commentGroup:
-        soup = BeautifulSoup(comment)
+        soup = BeautifulSoup(comment, 'html5lib')
         header = soup.find('div',{"class": "single-review"})
+        comment_star = int(soup.find('div',{"class": "tiny-star"}).attrs["aria-label"].split(" ")[1])
+
         comment_user = header.find("span",{"class": "author-name"}).text.replace(" ","")
         comment_date = header.find("span",{"class": "review-date"}).text.replace(" ","")
+        
+        comment_content = soup.find('div',{"class": "review-body"}).contents[2]
 
         body = soup.find("div", {"class": "review-body"})
-        print(body.text)
+        # print(body.text)
 
         reply = soup.find("div",{"class": "developer-reply"})
+        comment_reply = None
         if reply != None:
-            None
+            comment_reply = reply.text
             # print(reply.text)
 
+        exist_array.append({
+            "user": comment_user,
+            "date": comment_date,
+            "star": comment_star,
+            "content": comment_content,
+            "dev-replay": comment_reply
+        })
+
     if len(commentGroup) == 40:
-        print("full 40 comments")
+        return parseData(appname,page+1,exist_array)
+        # return exist_array
+        # print("full 40 comments")
     else:
-        print("not all comment")
+        # print("not all comment")
+        return exist_array
 
 
-parseData(1)
+if len(argv)<1:
+    print("no application name !!")
+    exit(3)
+
+appname = argv[1]
+
+print("fetch: "+appname)
+data = parseData(appname)
+
+outputfile = open(appname+".json", "w")
+outputfile.writelines(json.dumps(data))
+outputfile.close()
+
+
+print("end")
