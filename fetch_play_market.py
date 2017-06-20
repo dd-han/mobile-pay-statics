@@ -81,7 +81,7 @@ def parseData(appname,page=0, exist_array=[]):
         return exist_array
 
 
-if len(argv)<1:
+if len(argv)<=1:
     print("no application name !!")
     exit(3)
 
